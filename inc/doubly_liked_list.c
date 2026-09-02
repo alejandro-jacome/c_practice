@@ -92,5 +92,4 @@ void DLL_print(DoublyLinkedList* dll) {
     }
     
     printf("%d -> NULL\n", current_node->val);
-    current_node = current_node->next;
 }
