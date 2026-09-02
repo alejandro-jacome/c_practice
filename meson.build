@@ -1,4 +1,4 @@
-project('secure_c23', 'c',
+project('hash_map_project', 'c',
     version : '0.1.0',
     default_options : [
         'c_std=c23',
@@ -34,10 +34,10 @@ inc_dir = include_directories('inc')
 
 src_files = files(
     'src/main.c',
-    'inc/doubly_liked_list.c'
+    'inc/hash_map.c'
 )
 
-executable('secure_app',
+executable('hash_map',
     src_files,
     include_directories : inc_dir,
     install : false

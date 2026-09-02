@@ -1,5 +1,5 @@
-#ifndef DLL_H 
-#define DLL_H
+#ifndef HASHMAP_H 
+#define HASHMAP_H
 
 #include <stddef.h>
 
@@ -18,10 +18,4 @@ void default_free(void* ptr, void* context);
     .context = NULL                     \
 }
 
-typedef struct DoublyLinkedList DoublyLinkedList;
-
-DoublyLinkedList* DLL_create(Allocator allocator);
-void DLL_insertFront(DoublyLinkedList* dll, int value);
-void DLL_insertEnd(DoublyLinkedList* dll, int value);
-void DLL_print(DoublyLinkedList* dll);
 #endif
