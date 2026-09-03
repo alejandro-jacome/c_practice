@@ -52,6 +52,8 @@ typedef struct {
     void* table2;
 } HashMap;
 
+size_t max_loops(size_t capacity);
+
 // Initializes the map with the user's custom logic and allocator.
 // You must set initial capacity and allocate your internal buckets here.
 HashMap_Error HashMap_create(HashMap** out_map, HashFunc hash1, HashFunc hash2, EqualsFunc equals, Allocator alloc);

@@ -3,9 +3,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <math.h>
 // Constants
 static const size_t DEFAULT_PER_TABLE_CAPACITY = 8;
-static const float MAX_LOAD_FACTOR = 0.7f;
+// static const float MAX_LOAD_FACTOR = 0.7f;
 
 void* default_alloc(size_t size, void* context) {
     (void)context;
@@ -21,6 +22,10 @@ typedef struct {
     void* value;
     bool is_occupied;
 } Bucket;
+
+size_t max_loops(size_t capacity) {
+    return (size_t)( 0.3f * log2f((float)capacity) );
+}
 
 HashMap_Error HashMap_create(HashMap** out_map, HashFunc hash1, HashFunc hash2, EqualsFunc equals, Allocator alloc) {
     HashMap* map = alloc.alloc(sizeof(HashMap), alloc.context);
@@ -65,9 +70,9 @@ HashMap_Error HashMap_put(HashMap *map, void *key, void *value) {
         return HASHMAP_ERR_OOM;
     }
     // Then we put it's resouces in
-    *bucket = (Bucket){Full, key, value};
+    *bucket = (Bucket){key, value, true};
 
-    // Now come the hard part
+    // Now comes the hard part
     
 
     return HASHMAP_OK;
