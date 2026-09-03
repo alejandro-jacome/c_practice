@@ -47,8 +47,8 @@ HashMap_Error HashMap_create(HashMap** out_map, HashFunc hash1, HashFunc hash2, 
 
     map->table2 = map->alloc.alloc(sizeof(Bucket) * DEFAULT_PER_TABLE_CAPACITY, alloc.context);
     if(map->table2== NULL) {
-        map->alloc.free(map, alloc.context); // We have to free the prev memory to avoid a memory leak
         map->alloc.free(map->table1, map->alloc.context);
+        map->alloc.free(map, alloc.context); // We have to free the prev memory to avoid a memory leak
         return HASHMAP_ERR_OOM;
     }
 
@@ -127,3 +127,18 @@ bool HashMap_remove(HashMap* map, const void* key) {
     return false;
 }
 
+void HashMap_destroy(HashMap* map) {
+    if(map == NULL) {
+        return;
+    }
+
+    if(map->table1 != NULL) {
+        map->alloc.free(map->table1, map->alloc.context);
+    }
+
+    if(map->table2 != NULL) {
+        map->alloc.free(map->table2, map->alloc.context);
+    }
+
+    map->alloc.free(map, map->alloc.context);
+}
