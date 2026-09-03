@@ -73,7 +73,57 @@ HashMap_Error HashMap_put(HashMap *map, void *key, void *value) {
     *bucket = (Bucket){key, value, true};
 
     // Now comes the hard part
-    
+        
 
     return HASHMAP_OK;
 }
+
+bool HashMap_contains(HashMap* map, const void* key) {
+    size_t idx1 = map->hash1(key) % map->capacity;
+    Bucket* bucket1 = &((Bucket*)map->table1)[idx1];
+
+    size_t idx2 = map->hash2(key) % map->capacity;
+    Bucket* bucket2 = &((Bucket*)map->table2)[idx2];
+
+    return (bucket1->is_occupied && map->equals(key, bucket1->key)) || (bucket2->is_occupied && map->equals(key, bucket2->key));
+}
+
+bool HashMap_get(HashMap* map, const void* key, void** out_value) {
+    size_t idx1 = map->hash1(key) % map->capacity;
+    Bucket* bucket1 = &((Bucket*)map->table1)[idx1];
+
+    size_t idx2 = map->hash2(key) % map->capacity;
+    Bucket* bucket2 = &((Bucket*)map->table2)[idx2];
+
+    if (bucket1->is_occupied && map->equals(key, bucket1->key)) {
+        *out_value = bucket1->value; 
+        return true;
+    } else if (bucket2->is_occupied && map->equals(key, bucket2->key)) {
+        *out_value = bucket2->value; 
+        return true;
+    }
+
+    return false;
+}
+
+bool HashMap_remove(HashMap* map, const void* key) {
+    size_t idx1 = map->hash1(key) % map->capacity;
+    Bucket* bucket1 = &((Bucket*)map->table1)[idx1];
+
+    size_t idx2 = map->hash2(key) % map->capacity;
+    Bucket* bucket2 = &((Bucket*)map->table2)[idx2];
+
+    if (bucket1->is_occupied && map->equals(key, bucket1->key)) {
+        bucket1->is_occupied = false;
+        bucket1->key = NULL;
+        bucket1->value = NULL;
+        return true;
+    } else if (bucket2->is_occupied && map->equals(key, bucket2->key)) {
+        bucket2->is_occupied = false;
+        bucket2->key = NULL;
+        bucket2->value = NULL;
+        return true;
+    }
+    return false;
+}
+

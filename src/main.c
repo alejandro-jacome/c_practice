@@ -32,7 +32,7 @@ static size_t hash2(const void* key) {
 }
 
 static bool equals(const void* key_a, const void* key_b) {
-    return (strcmp(((char*)key_a), (char*)key_b)) ? true : false;
+    return (strcmp(((char*)key_a), (char*)key_b)) == 0; 
 }
 
 int main() {
