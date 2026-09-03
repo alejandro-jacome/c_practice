@@ -48,7 +48,8 @@ typedef struct {
     EqualsFunc equals;  // The user's comparison logic
     Allocator alloc;    // The user's memory allocator
     
-    void* buckets;      // Opaque pointer hiding your internal array/bucket design
+    void* table1;      // Opaque pointer hiding your internal array/bucket design
+    void* table2;
 } HashMap;
 
 // Initializes the map with the user's custom logic and allocator.

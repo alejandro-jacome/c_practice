@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 // Constants
-static const size_t DEFAULT_CAPACITY = 16;
+static const size_t DEFAULT_PER_TABLE_CAPACITY = 8;
 static const float MAX_LOAD_FACTOR = 0.7f;
 
 void* default_alloc(size_t size, void* context) {
@@ -16,16 +16,10 @@ void default_free(void* ptr, void* context) {
     free(ptr);
 }
 
-typedef enum {
-    Dead = -1,
-    Full = 0,
-    Empty = 1,
-} BucketState;
-
 typedef struct {
-    BucketState state;
     void* key;
     void* value;
+    bool is_occupied;
 } Bucket;
 
 HashMap_Error HashMap_create(HashMap** out_map, HashFunc hash1, HashFunc hash2, EqualsFunc equals, Allocator alloc) {
@@ -34,23 +28,33 @@ HashMap_Error HashMap_create(HashMap** out_map, HashFunc hash1, HashFunc hash2, 
         return HASHMAP_ERR_OOM;
     }
     map->count = 0;
-    map->capacity = DEFAULT_CAPACITY;
+    map->capacity = DEFAULT_PER_TABLE_CAPACITY;
     map->hash1 = hash1;
     map->hash2 = hash2;
     map->equals = equals;
     map->alloc = alloc;
-    map->buckets = map->alloc.alloc(sizeof(Bucket) * DEFAULT_CAPACITY, alloc.context);
 
-    if(map->buckets == NULL) {
+    map->table1 = map->alloc.alloc(sizeof(Bucket) * DEFAULT_PER_TABLE_CAPACITY, alloc.context);
+    if(map->table1== NULL) {
         map->alloc.free(map, alloc.context); // We have to free the prev memory to avoid a memory leak
         return HASHMAP_ERR_OOM;
     }
 
-    Bucket* bucket = (Bucket*)map->buckets;
-    for(size_t i=0; i<DEFAULT_CAPACITY; i++) {
-        bucket[i] = (Bucket){Empty, NULL, NULL};
+    map->table2 = map->alloc.alloc(sizeof(Bucket) * DEFAULT_PER_TABLE_CAPACITY, alloc.context);
+    if(map->table2== NULL) {
+        map->alloc.free(map, alloc.context); // We have to free the prev memory to avoid a memory leak
+        map->alloc.free(map->table1, map->alloc.context);
+        return HASHMAP_ERR_OOM;
     }
-    *out_map = map;
+
+    Bucket* buckets1= (Bucket*)map->table1;
+    Bucket* buckets2= (Bucket*)map->table2;
+    for(size_t i=0; i<DEFAULT_PER_TABLE_CAPACITY; i++) {
+        buckets1[i] = (Bucket){NULL, NULL, false};
+        buckets2[i] = (Bucket){NULL, NULL, false};
+    }
+
+    *out_map = map; // Here as assign the hash map we just created to the passed in pointer;
     return HASHMAP_OK;
 }
 
@@ -64,6 +68,7 @@ HashMap_Error HashMap_put(HashMap *map, void *key, void *value) {
     *bucket = (Bucket){Full, key, value};
 
     // Now come the hard part
+    
 
     return HASHMAP_OK;
 }
