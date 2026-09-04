@@ -42,4 +42,5 @@ int main() {
         printf("Something went wrong");
         return -1;
     }
+    HashMap_destroy(map);
 }
