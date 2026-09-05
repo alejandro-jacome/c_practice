@@ -8,28 +8,29 @@
 static const size_t DEFAULT_PER_TABLE_CAPACITY = 8;
 static const float MAX_LOAD_FACTOR = 0.5f;
 
-void* default_alloc(size_t size, void* context) {
+void *default_alloc(size_t size, void *context) {
     (void)context;
     return malloc(size);
 }
-void default_free(void* ptr, void* context) {
+void default_free(void *ptr, void *context) {
     (void)context;
     free(ptr);
 }
 
 typedef struct {
-    void* key;
-    void* value;
+    void *key;
+    void *value;
     bool is_occupied;
 } Bucket;
 
 size_t max_loops(size_t capacity) {
-    return (size_t)( 0.3f * log2f((float)capacity) );
+    return (size_t)(0.3f * log2f((float)capacity));
 }
 
-HashMap_Error HashMap_create(HashMap** out_map, HashFunc hash1, HashFunc hash2, EqualsFunc equals, Allocator alloc) {
-    HashMap* map = alloc.alloc(sizeof(HashMap), alloc.context);
-    if(map == NULL) {
+HashMap_Error HashMap_create(HashMap **out_map, HashFunc hash1, HashFunc hash2,
+                             EqualsFunc equals, Allocator alloc) {
+    HashMap *map = alloc.alloc(sizeof(HashMap), alloc.context);
+    if (map == NULL) {
         return HASHMAP_ERR_OOM;
     }
     map->count = 0;
@@ -39,56 +40,62 @@ HashMap_Error HashMap_create(HashMap** out_map, HashFunc hash1, HashFunc hash2, 
     map->equals = equals;
     map->alloc = alloc;
 
-    map->table1 = map->alloc.alloc(sizeof(Bucket) * DEFAULT_PER_TABLE_CAPACITY, alloc.context);
-    if(map->table1== NULL) {
-        map->alloc.free(map, alloc.context); // We have to free the prev memory to avoid a memory leak
+    map->table1 = map->alloc.alloc(sizeof(Bucket) * DEFAULT_PER_TABLE_CAPACITY,
+                                   alloc.context);
+    if (map->table1 == NULL) {
+        map->alloc.free(map, alloc.context); // We have to free the prev memory
+                                             // to avoid a memory leak
         return HASHMAP_ERR_OOM;
     }
 
-    map->table2 = map->alloc.alloc(sizeof(Bucket) * DEFAULT_PER_TABLE_CAPACITY, alloc.context);
-    if(map->table2== NULL) {
+    map->table2 = map->alloc.alloc(sizeof(Bucket) * DEFAULT_PER_TABLE_CAPACITY,
+                                   alloc.context);
+    if (map->table2 == NULL) {
         map->alloc.free(map->table1, map->alloc.context);
-        map->alloc.free(map, alloc.context); // We have to free the prev memory to avoid a memory leak
+        map->alloc.free(map, alloc.context); // We have to free the prev memory
+                                             // to avoid a memory leak
         return HASHMAP_ERR_OOM;
     }
 
-    Bucket* buckets1= (Bucket*)map->table1;
-    Bucket* buckets2= (Bucket*)map->table2;
-    for(size_t i=0; i<DEFAULT_PER_TABLE_CAPACITY; i++) {
+    Bucket *buckets1 = (Bucket *)map->table1;
+    Bucket *buckets2 = (Bucket *)map->table2;
+    for (size_t i = 0; i < DEFAULT_PER_TABLE_CAPACITY; i++) {
         buckets1[i] = (Bucket){NULL, NULL, false};
         buckets2[i] = (Bucket){NULL, NULL, false};
     }
 
-    *out_map = map; // Here as assign the hash map we just created to the passed in pointer;
+    *out_map = map; // Here as assign the hash map we just created to the passed
+                    // in pointer;
     return HASHMAP_OK;
 }
 
 HashMap_Error HashMap_put(HashMap *map, void *key, void *value) {
     // Check capacity first
-    if( (float)map->count/(float)map-> capacity >= DEFAULT_PER_TABLE_CAPACITY*2 ) {
+    if ((float)map->count / (float)map->capacity >= MAX_LOAD_FACTOR) {
         HashMap_rehash(map);
     }
 
-    size_t i=0;
-    Bucket* buckets1= (Bucket*)map->table1;
-    Bucket* buckets2= (Bucket*)map->table2;
-    while(i < max_loops(map->capacity)) {
+    size_t i = 0;
+    Bucket *buckets1 = (Bucket *)map->table1;
+    Bucket *buckets2 = (Bucket *)map->table2;
+    while (i < max_loops(map->capacity)) {
         // If T1(hash1(key)) is not occupied we place it there
         size_t idx1 = map->hash1(key) % map->capacity;
-        if( !buckets1[idx1].is_occupied ) {
-            buckets1[idx1]= (Bucket){key, value, true};
+        if (!buckets1[idx1].is_occupied) {
+            buckets1[idx1] = (Bucket){key, value, true};
             map->count++;
             return HASHMAP_OK;
         }
-        // If it is occupied, we place the key and value we were trying to place in that spot
-        void* temp_key= buckets1[idx1].key;
-        void* temp_value= buckets1[idx1].value;
+        // If it is occupied, we place the key and value we were trying to place
+        // in that spot
+        void *temp_key = buckets1[idx1].key;
+        void *temp_value = buckets1[idx1].value;
         buckets1[idx1] = (Bucket){key, value, true};
         key = temp_key;
-        value = temp_value; 
+        value = temp_value;
 
         size_t idx2 = map->hash2(key) % map->capacity;
-        if( !buckets2[idx2].is_occupied ) {
+        if (!buckets2[idx2].is_occupied) {
             buckets2[idx2] = (Bucket){key, value, true};
             map->count++;
             return HASHMAP_OK;
@@ -101,13 +108,13 @@ HashMap_Error HashMap_put(HashMap *map, void *key, void *value) {
 
         i++;
     }
-    HashMap_Error err = HashMap_rehash(map); 
-    if(err != HASHMAP_OK) {
+    HashMap_Error err = HashMap_rehash(map);
+    if (err != HASHMAP_OK) {
         return err;
     }
 
     err = HashMap_put(map, key, value);
-    if(err != HASHMAP_OK) {
+    if (err != HASHMAP_OK) {
         return err;
     }
 
@@ -115,48 +122,67 @@ HashMap_Error HashMap_put(HashMap *map, void *key, void *value) {
     return HASHMAP_OK;
 }
 
-HashMap_Error HashMap_rehash(HashMap* map) {
+HashMap_Error HashMap_rehash(HashMap *map) {
     size_t new_capacity = map->capacity * 2;
     size_t old_capacity = map->capacity;
+    size_t old_count = map->count;
 
-    void* new_table1 = map->alloc.alloc(sizeof(Bucket) * new_capacity, map->alloc.context);
-    if(new_table1== NULL) {
+    void *new_table1 =
+        map->alloc.alloc(sizeof(Bucket) * new_capacity, map->alloc.context);
+    if (new_table1 == NULL) {
         return HASHMAP_ERR_OOM;
     }
 
-    void* new_table2 = map->alloc.alloc(sizeof(Bucket) * new_capacity, map->alloc.context);
-    if(new_table2== NULL) {
+    void *new_table2 =
+        map->alloc.alloc(sizeof(Bucket) * new_capacity, map->alloc.context);
+    if (new_table2 == NULL) {
         map->alloc.free(new_table1, map->alloc.context);
         return HASHMAP_ERR_OOM;
     }
-    void* old_table1 = map->table1;
-    void* old_table2 = map->table2;
-    Bucket* old_buckets1= (Bucket*)map->table1;
-    Bucket* old_buckets2= (Bucket*)map->table2;
+    void *old_table1 = map->table1;
+    void *old_table2 = map->table2;
+    Bucket *old_buckets1 = (Bucket *)map->table1;
+    Bucket *old_buckets2 = (Bucket *)map->table2;
 
     map->table1 = new_table1;
     map->table2 = new_table2;
     map->capacity = new_capacity;
     map->count = 0;
 
-    Bucket* new_buckets1 = (Bucket*)new_table1; 
-    Bucket* new_buckets2 = (Bucket*)new_table2;
-    for(size_t i=0; i<DEFAULT_PER_TABLE_CAPACITY; i++) {
+    Bucket *new_buckets1 = (Bucket *)new_table1;
+    Bucket *new_buckets2 = (Bucket *)new_table2;
+    for (size_t i = 0; i < new_capacity; i++) {
         new_buckets1[i] = (Bucket){NULL, NULL, false};
         new_buckets2[i] = (Bucket){NULL, NULL, false};
     }
 
-    for(size_t i=0; i<old_capacity; i++) {
-        if(old_buckets1[i].is_occupied) {
-            HashMap_Error err = HashMap_put(map, old_buckets1[i].key, old_buckets1[i].value);
-            if(err != HASHMAP_OK) {
+    for (size_t i = 0; i < old_capacity; i++) {
+        if (old_buckets1[i].is_occupied) {
+            HashMap_Error err =
+                HashMap_put(map, old_buckets1[i].key, old_buckets1[i].value);
+            if (err != HASHMAP_OK) {
+                // ROLLBACK: Restore the map to its original state
+                map->table1 = old_table1;
+                map->table2 = old_table2;
+                map->capacity = old_capacity;
+                map->count = old_count;
+                map->alloc.free(new_table1, map->alloc.context);
+                map->alloc.free(new_table2, map->alloc.context);
                 return err;
             }
         }
-        
-        if(old_buckets2[i].is_occupied) {
-            HashMap_Error err = HashMap_put(map, old_buckets2[i].key, old_buckets2[i].value);
-            if(err != HASHMAP_OK) {
+
+        if (old_buckets2[i].is_occupied) {
+            HashMap_Error err =
+                HashMap_put(map, old_buckets2[i].key, old_buckets2[i].value);
+            if (err != HASHMAP_OK) {
+                // ROLLBACK: Restore the map to its original state
+                map->table1 = old_table1;
+                map->table2 = old_table2;
+                map->capacity = old_capacity;
+                map->count = old_count;
+                map->alloc.free(new_table1, map->alloc.context);
+                map->alloc.free(new_table2, map->alloc.context);
                 return err;
             }
         }
@@ -168,40 +194,41 @@ HashMap_Error HashMap_rehash(HashMap* map) {
     return HASHMAP_OK;
 }
 
-bool HashMap_contains(HashMap* map, const void* key) {
+bool HashMap_contains(HashMap *map, const void *key) {
     size_t idx1 = map->hash1(key) % map->capacity;
-    Bucket* bucket1 = &((Bucket*)map->table1)[idx1];
+    Bucket *bucket1 = &((Bucket *)map->table1)[idx1];
 
     size_t idx2 = map->hash2(key) % map->capacity;
-    Bucket* bucket2 = &((Bucket*)map->table2)[idx2];
+    Bucket *bucket2 = &((Bucket *)map->table2)[idx2];
 
-    return (bucket1->is_occupied && map->equals(key, bucket1->key)) || (bucket2->is_occupied && map->equals(key, bucket2->key));
+    return (bucket1->is_occupied && map->equals(key, bucket1->key)) ||
+           (bucket2->is_occupied && map->equals(key, bucket2->key));
 }
 
-bool HashMap_get(HashMap* map, const void* key, void** out_value) {
+bool HashMap_get(HashMap *map, const void *key, void **out_value) {
     size_t idx1 = map->hash1(key) % map->capacity;
-    Bucket* bucket1 = &((Bucket*)map->table1)[idx1];
+    Bucket *bucket1 = &((Bucket *)map->table1)[idx1];
 
     size_t idx2 = map->hash2(key) % map->capacity;
-    Bucket* bucket2 = &((Bucket*)map->table2)[idx2];
+    Bucket *bucket2 = &((Bucket *)map->table2)[idx2];
 
     if (bucket1->is_occupied && map->equals(key, bucket1->key)) {
-        *out_value = bucket1->value; 
+        *out_value = bucket1->value;
         return true;
     } else if (bucket2->is_occupied && map->equals(key, bucket2->key)) {
-        *out_value = bucket2->value; 
+        *out_value = bucket2->value;
         return true;
     }
 
     return false;
 }
 
-bool HashMap_remove(HashMap* map, const void* key) {
+bool HashMap_remove(HashMap *map, const void *key) {
     size_t idx1 = map->hash1(key) % map->capacity;
-    Bucket* bucket1 = &((Bucket*)map->table1)[idx1];
+    Bucket *bucket1 = &((Bucket *)map->table1)[idx1];
 
     size_t idx2 = map->hash2(key) % map->capacity;
-    Bucket* bucket2 = &((Bucket*)map->table2)[idx2];
+    Bucket *bucket2 = &((Bucket *)map->table2)[idx2];
 
     if (bucket1->is_occupied && map->equals(key, bucket1->key)) {
         bucket1->is_occupied = false;
@@ -217,16 +244,16 @@ bool HashMap_remove(HashMap* map, const void* key) {
     return false;
 }
 
-void HashMap_destroy(HashMap* map) {
-    if(map == NULL) {
+void HashMap_destroy(HashMap *map) {
+    if (map == NULL) {
         return;
     }
 
-    if(map->table1 != NULL) {
+    if (map->table1 != NULL) {
         map->alloc.free(map->table1, map->alloc.context);
     }
 
-    if(map->table2 != NULL) {
+    if (map->table2 != NULL) {
         map->alloc.free(map->table2, map->alloc.context);
     }
 
