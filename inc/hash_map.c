@@ -72,16 +72,31 @@ HashMap_Error HashMap_create(HashMap **out_map, HashFunc hash1, HashFunc hash2,
 
 HashMap_Error HashMap_put(HashMap *map, void *key, void *value) {
     // Check capacity first
-    if ((float)map->count / (float)map->capacity >= MAX_LOAD_FACTOR) {
-        HashMap_rehash(map);
+    if ((float)map->count / (float)(2 * map->capacity) >= MAX_LOAD_FACTOR) {
+        HashMap_Error err = HashMap_rehash(map);
+        if (err != HASHMAP_OK) {
+            return err;
+        }
+    }
+
+    Bucket *buckets1 = (Bucket *)map->table1;
+    size_t idx1 = map->hash1(key) % map->capacity;
+    if (buckets1[idx1].is_occupied && map->equals(buckets1[idx1].key, key)) {
+        buckets1[idx1].value = value;
+        return HASHMAP_OK;
+    }
+
+    Bucket *buckets2 = (Bucket *)map->table2;
+    size_t idx2 = map->hash2(key) % map->capacity;
+    if (buckets2[idx2].is_occupied && map->equals(buckets2[idx2].key, key)) {
+        buckets2[idx2].value = value;
+        return HASHMAP_OK;
     }
 
     size_t i = 0;
-    Bucket *buckets1 = (Bucket *)map->table1;
-    Bucket *buckets2 = (Bucket *)map->table2;
     while (i < max_loops(map->capacity)) {
         // If T1(hash1(key)) is not occupied we place it there
-        size_t idx1 = map->hash1(key) % map->capacity;
+        idx1 = map->hash1(key) % map->capacity;
         if (!buckets1[idx1].is_occupied) {
             buckets1[idx1] = (Bucket){key, value, true};
             map->count++;
@@ -95,7 +110,7 @@ HashMap_Error HashMap_put(HashMap *map, void *key, void *value) {
         key = temp_key;
         value = temp_value;
 
-        size_t idx2 = map->hash2(key) % map->capacity;
+        idx2 = map->hash2(key) % map->capacity;
         if (!buckets2[idx2].is_occupied) {
             buckets2[idx2] = (Bucket){key, value, true};
             map->count++;
@@ -234,11 +249,13 @@ bool HashMap_remove(HashMap *map, const void *key) {
         bucket1->is_occupied = false;
         bucket1->key = NULL;
         bucket1->value = NULL;
+        map->count--;
         return true;
     } else if (bucket2->is_occupied && map->equals(key, bucket2->key)) {
         bucket2->is_occupied = false;
         bucket2->key = NULL;
         bucket2->value = NULL;
+        map->count--;
         return true;
     }
     return false;
