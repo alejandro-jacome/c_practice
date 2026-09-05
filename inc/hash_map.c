@@ -6,7 +6,7 @@
 #include <math.h>
 // Constants
 static const size_t DEFAULT_PER_TABLE_CAPACITY = 8;
-// static const float MAX_LOAD_FACTOR = 0.7f;
+static const float MAX_LOAD_FACTOR = 0.5f;
 
 void* default_alloc(size_t size, void* context) {
     (void)context;
@@ -64,16 +64,106 @@ HashMap_Error HashMap_create(HashMap** out_map, HashFunc hash1, HashFunc hash2, 
 }
 
 HashMap_Error HashMap_put(HashMap *map, void *key, void *value) {
-    // Ok so first we wanna create the new map duh
-    Bucket* bucket = map->alloc.alloc(sizeof(Bucket), map->alloc.context);
-    if(bucket == NULL) {
+    // Check capacity first
+    if( (float)map->count/(float)map-> capacity >= DEFAULT_PER_TABLE_CAPACITY*2 ) {
+        HashMap_rehash(map);
+    }
+
+    size_t i=0;
+    Bucket* buckets1= (Bucket*)map->table1;
+    Bucket* buckets2= (Bucket*)map->table2;
+    while(i < max_loops(map->capacity)) {
+        // If T1(hash1(key)) is not occupied we place it there
+        size_t idx1 = map->hash1(key) % map->capacity;
+        if( !buckets1[idx1].is_occupied ) {
+            buckets1[idx1]= (Bucket){key, value, true};
+            map->count++;
+            return HASHMAP_OK;
+        }
+        // If it is occupied, we place the key and value we were trying to place in that spot
+        void* temp_key= buckets1[idx1].key;
+        void* temp_value= buckets1[idx1].value;
+        buckets1[idx1] = (Bucket){key, value, true};
+        key = temp_key;
+        value = temp_value; 
+
+        size_t idx2 = map->hash2(key) % map->capacity;
+        if( !buckets2[idx2].is_occupied ) {
+            buckets2[idx2] = (Bucket){key, value, true};
+            map->count++;
+            return HASHMAP_OK;
+        }
+        temp_key = buckets2[idx2].key;
+        temp_value = buckets2[idx2].value;
+        buckets2[idx2] = (Bucket){key, value, true};
+        key = temp_key;
+        value = temp_value;
+
+        i++;
+    }
+    HashMap_Error err = HashMap_rehash(map); 
+    if(err != HASHMAP_OK) {
+        return err;
+    }
+
+    err = HashMap_put(map, key, value);
+    if(err != HASHMAP_OK) {
+        return err;
+    }
+
+    map->count++;
+    return HASHMAP_OK;
+}
+
+HashMap_Error HashMap_rehash(HashMap* map) {
+    size_t new_capacity = map->capacity * 2;
+    size_t old_capacity = map->capacity;
+
+    void* new_table1 = map->alloc.alloc(sizeof(Bucket) * new_capacity, map->alloc.context);
+    if(new_table1== NULL) {
         return HASHMAP_ERR_OOM;
     }
-    // Then we put it's resouces in
-    *bucket = (Bucket){key, value, true};
 
-    // Now comes the hard part
+    void* new_table2 = map->alloc.alloc(sizeof(Bucket) * new_capacity, map->alloc.context);
+    if(new_table2== NULL) {
+        map->alloc.free(new_table1, map->alloc.context);
+        return HASHMAP_ERR_OOM;
+    }
+    void* old_table1 = map->table1;
+    void* old_table2 = map->table2;
+    Bucket* old_buckets1= (Bucket*)map->table1;
+    Bucket* old_buckets2= (Bucket*)map->table2;
+
+    map->table1 = new_table1;
+    map->table2 = new_table2;
+    map->capacity = new_capacity;
+    map->count = 0;
+
+    Bucket* new_buckets1 = (Bucket*)new_table1; 
+    Bucket* new_buckets2 = (Bucket*)new_table2;
+    for(size_t i=0; i<DEFAULT_PER_TABLE_CAPACITY; i++) {
+        new_buckets1[i] = (Bucket){NULL, NULL, false};
+        new_buckets2[i] = (Bucket){NULL, NULL, false};
+    }
+
+    for(size_t i=0; i<old_capacity; i++) {
+        if(old_buckets1[i].is_occupied) {
+            HashMap_Error err = HashMap_put(map, old_buckets1[i].key, old_buckets1[i].value);
+            if(err != HASHMAP_OK) {
+                return err;
+            }
+        }
         
+        if(old_buckets2[i].is_occupied) {
+            HashMap_Error err = HashMap_put(map, old_buckets2[i].key, old_buckets2[i].value);
+            if(err != HASHMAP_OK) {
+                return err;
+            }
+        }
+    }
+
+    map->alloc.free(old_table1, map->alloc.context);
+    map->alloc.free(old_table2, map->alloc.context);
 
     return HASHMAP_OK;
 }

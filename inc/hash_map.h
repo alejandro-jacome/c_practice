@@ -76,4 +76,7 @@ bool HashMap_remove(HashMap* map, const void* key);
 // A convenience function to check if a key exists without grabbing its value.
 bool HashMap_contains(HashMap* map, const void* key);
 
+// Rehash function
+HashMap_Error HashMap_rehash(HashMap* map);
+
 #endif
