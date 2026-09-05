@@ -24,7 +24,8 @@ typedef struct {
 } Bucket;
 
 size_t max_loops(size_t capacity) {
-    return (size_t)(0.3f * log2f((float)capacity));
+    size_t loops = (size_t)(3.0f * log2f((float)capacity));
+    return (loops < 10) ? 10 : loops;
 }
 
 HashMap_Error HashMap_create(HashMap **out_map, HashFunc hash1, HashFunc hash2,
@@ -118,7 +119,6 @@ HashMap_Error HashMap_put(HashMap *map, void *key, void *value) {
         return err;
     }
 
-    map->count++;
     return HASHMAP_OK;
 }
 
